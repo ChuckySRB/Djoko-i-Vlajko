@@ -45,26 +45,13 @@ victory2=pygame.image.load("P2.png").convert_alpha()
 
 #----------------Paralax Background------------------------------------------------------
 scroll=0
+
 bg_images=[]
-i=[3,1,2]
-x=random.choice(i)
-if(x==1):
-    for i in range(4,0,-1):
-        bg_image=pygame.image.load(f"Background/paralaxbg1/img {i}.png").convert_alpha()
-        bg_images.append(bg_image)
-    bg_width=bg_images[0].get_width()
-elif(x==2):
-    bg_images=[]
-    for i in range(4,0,-1):
-        bg_image=pygame.image.load(f"Background/paralaxbg2/img {i}.png").convert_alpha()
-        bg_images.append(bg_image)
-    bg_width=bg_images[0].get_width()
-elif(x==3):
-    bg_images=[]
-    for i in range(7,0,-1):
-        bg_image=pygame.image.load(f"Background/paralaxbg3/img {i}.png").convert_alpha()
-        bg_images.append(bg_image)
-    bg_width=bg_images[0].get_width()
+for i in range(4,0,-1):
+    bg_image=pygame.image.load(f"Background/paralaxbg2/img {i}.png").convert_alpha()
+    bg_images.append(bg_image)
+bg_width=bg_images[0].get_width()
+
 
 def drawtimer(timer):
     cdimg=pygame.image.load(f"intro/{timer}.png").convert_alpha()
