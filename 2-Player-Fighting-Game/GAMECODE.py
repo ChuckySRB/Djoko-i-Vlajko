@@ -2,6 +2,7 @@ import pygame
 from fighter import Fighter
 import random
 from pygame import mixer
+from main_menu import MainMenu
 
 mixer.init()
 pygame.init()
@@ -17,10 +18,9 @@ pygame.display.set_caption("Pixel Warrior")
 clock=pygame.time.Clock()
 FPS=60
 
-# load music
-pygame.mixer.music.load("music/bgmusic.mp3")
-pygame.mixer.music.set_volume(5)
-mixer.music.play(-1)
+# Initialize main menu
+main_menu = MainMenu(sc_width, sc_height)
+game_started = False
 
 #color
 YELLOW=(255,255,0)
@@ -137,6 +137,30 @@ F2=Fighter(2,800,290,True,PROP2,Player2,p2_anm_steps,p2sound,p2soundmiss)
 run=True
 while run:
     clock.tick(FPS)
+    
+    # Show main menu if game hasn't started
+    if not game_started:
+        main_menu.draw(screen)
+        
+        # Handle menu events
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                run = False
+            else:
+                result = main_menu.handle_input(event)
+                if result == "start_game":
+                    game_started = True
+                    # Load game music when starting
+                    pygame.mixer.music.load("music/bgmusic.mp3")
+                    pygame.mixer.music.set_volume(5)
+                    mixer.music.play(-1)
+                elif result == "quit":
+                    run = False
+        
+        pygame.display.update()
+        continue
+    
+    # Main game loop (only runs after menu)
     drawbg()
     if intro_count<=0:
         F1.move(sc_width,sc_height,screen,F2,round_over)
