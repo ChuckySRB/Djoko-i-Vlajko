@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ћоко и Влајко — Twin Runner</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            background: #1a1c2c; /* dark pixel-art friendly bg */
+            color: #e0e0e0;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+            height: 100%;
+        }
+        #game {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        .tip { position:absolute; left:8px; top:8px; opacity:0.8; font-size:14px; }
+        .tip kbd{ background:#333; padding:2px 4px; border-radius:3px; }
+    </style>
+    <!-- Phaser 3 from CDN -->
+    <script id="phaser-cdn" src="https://cdn.jsdelivr.net/npm/phaser@3.80.0/dist/phaser.min.js" onerror="window.__phaserLoadError=true;"></script>
+</head>
+<body>
+    <div id="game"></div>
+    <div class="tip">
+        <div><strong>Играч 1</strong>: <kbd>W</kbd> скачи, <kbd>A</kbd>/<kbd>D</kbd> лево/десно</div>
+        <div><strong>Играч 2</strong>: <kbd>↑</kbd> скачи, <kbd>←</kbd>/<kbd>→</kbd> лево/десно</div>
+        <div>Gamepad: притисни било које дугме за детекцију</div>
+    </div>
+
+    <script>
+    // Fallback notice if Phaser fails to load (e.g., offline)
+    window.addEventListener('load', () => {
+        setTimeout(() => {
+            if(!window.Phaser){
+                const warn = document.createElement('div');
+                warn.style.position = 'absolute';
+                warn.style.left = '50%';
+                warn.style.top = '50%';
+                warn.style.transform = 'translate(-50%, -50%)';
+                warn.style.padding = '16px 20px';
+                warn.style.background = '#2b2b2b';
+                warn.style.border = '1px solid #444';
+                warn.style.color = '#fff';
+                warn.style.fontFamily = 'monospace';
+                warn.style.textAlign = 'center';
+                warn.style.maxWidth = '90%';
+                warn.innerHTML = 'Phaser није учитан. Проверите интернет или додајте локалну datoteku phaser.min.js у исту фасциклу и укључите је.';
+                document.body.appendChild(warn);
+            }
+        }, 1000);
+    });
+    // Simple Twin Runner with Title and Best-of-3 flow
+    const GAME_WIDTH = 960;
+    const GAME_HEIGHT = 540;
+    const GROUND_Y = 460;
+
+    const MATCH_TARGET_WINS = 2; // best of 3
+
+    class TitleScene extends Phaser.Scene {
+        constructor(){ super('Title'); }
+        create(){
+            this.add.rectangle(GAME_WIDTH/2, GAME_HEIGHT/2, GAME_WIDTH, GAME_HEIGHT, 0x0b0e22);
+            this.add.text(GAME_WIDTH/2, 160, 'Ћоко и Влајко', { fontFamily:'monospace', fontSize:'40px', color:'#ffffff' }).setOrigin(0.5);
+            this.add.text(GAME_WIDTH/2, 210, 'Twin Runner', { fontFamily:'monospace', fontSize:'20px', color:'#a0a0a0' }).setOrigin(0.5);
+            this.add.text(GAME_WIDTH/2, 280, 'Најбољи од 3 (Best of 3)', { fontFamily:'monospace', fontSize:'16px', color:'#cccccc' }).setOrigin(0.5);
+            this.add.text(GAME_WIDTH/2, 340, 'Играч 1: W/A/D, SPACE', { fontFamily:'monospace', fontSize:'14px', color:'#cccccc' }).setOrigin(0.5);
+            this.add.text(GAME_WIDTH/2, 365, 'Играч 2: стрелице, ENTER', { fontFamily:'monospace', fontSize:'14px', color:'#cccccc' }).setOrigin(0.5);
+            this.add.text(GAME_WIDTH/2, 420, 'Притисни било који тастер/дугме за почетак', { fontFamily:'monospace', fontSize:'16px', color:'#ffffff' }).setOrigin(0.5).setAlpha(0.9);
+
+            this.registry.set('winsP1', 0);
+            this.registry.set('winsP2', 0);
+            this.registry.set('round', 1);
+
+            const start = () => this.scene.start('TwinRunner');
+            this.input.keyboard.once('keydown', start);
+            this.input.once('pointerdown', start);
+            if(this.input.gamepad){ this.input.gamepad.once('down', start); }
+        }
+    }
+
+    class TwinRunnerScene extends Phaser.Scene {
+        constructor(){
+            super('TwinRunner');
+            this.players = [];
+            this.obstacles = null;
+            this.gamepads = [];
+            this.gameOver = false;
+        }
+
+        preload(){ }
+
+        create(){
+            // Background and ground
+            this.add.rectangle(GAME_WIDTH/2, GAME_HEIGHT/2, GAME_WIDTH, GAME_HEIGHT, 0x0b0e22).setDepth(-2);
+            // Parallax stripes
+            for(let i=0;i<6;i++){
+                const y = 100 + i*60;
+                const color = i % 2 === 0 ? 0x1f2547 : 0x15203b;
+                this.add.rectangle(GAME_WIDTH/2, y, GAME_WIDTH, 28, color).setAlpha(0.5).setDepth(-1);
+            }
+
+            // Lane grounds (two invisible floors: lower and upper lane)
+            const ground = this.physics.add.staticGroup();
+            const lower = this.add.rectangle(GAME_WIDTH/2, GROUND_Y+20, GAME_WIDTH, 40, 0x000000).setAlpha(0);
+            const upper = this.add.rectangle(GAME_WIDTH/2, (GROUND_Y-100)+20, GAME_WIDTH, 40, 0x000000).setAlpha(0);
+            this.physics.add.existing(lower, true);
+            this.physics.add.existing(upper, true);
+            ground.add(lower);
+            ground.add(upper);
+
+            // Create players: same body, different heads (colors) as placeholders
+            const p1 = this.createPlayer(160, 0, 'Ћоко', 0xf4b41b, 0xffec27);
+            const p2 = this.createPlayer(160, 1, 'Влајко', 0x29adff, 0x83769c);
+
+            // Lane separators (visual only)
+            this.add.line(0, 0, 0, GROUND_Y-100, GAME_WIDTH, GROUND_Y-100, 0x2a2d4a)
+                .setOrigin(0, 0).setAlpha(0.5);
+
+            // Collide with ground
+            this.physics.add.collider(p1.sprite, ground);
+            this.physics.add.collider(p2.sprite, ground);
+
+            // Obstacles group
+            this.obstacles = this.physics.add.group();
+            this.physics.add.collider(this.obstacles, ground);
+
+            // Overlap detection: obstacle hit -> that player loses
+            this.physics.add.overlap(p1.sprite, this.obstacles, () => this.handleHit(p1, p2));
+            this.physics.add.overlap(p2.sprite, this.obstacles, () => this.handleHit(p2, p1));
+
+            // Camera static; create UI
+            const scoreText = `Рунда ${this.registry.get('round') || 1} — Ској: P1 ${this.registry.get('winsP1')||0} : ${this.registry.get('winsP2')||0} P2`;
+            this.winText = this.add.text(GAME_WIDTH/2, 40, scoreText, {
+                fontFamily: 'monospace', fontSize: '20px', color: '#ffffff'
+            }).setOrigin(0.5, 0.5);
+
+            this.infoText = this.add.text(GAME_WIDTH/2, GAME_HEIGHT-24, 'Прескочи препреке! R за рестарт рунде.', {
+                fontFamily: 'monospace', fontSize: '16px', color: '#cccccc'
+            }).setOrigin(0.5, 0.5);
+
+            this.players = [p1, p2];
+
+            // Input: keyboard
+            this.cursors = this.input.keyboard.createCursorKeys();
+            this.keys = this.input.keyboard.addKeys({
+                A: Phaser.Input.Keyboard.KeyCodes.A,
+                D: Phaser.Input.Keyboard.KeyCodes.D,
+                W: Phaser.Input.Keyboard.KeyCodes.W,
+                R: Phaser.Input.Keyboard.KeyCodes.R,
+                ENTER: Phaser.Input.Keyboard.KeyCodes.ENTER,
+                SPACE: Phaser.Input.Keyboard.KeyCodes.SPACE
+            });
+
+            // Gamepad
+            if(this.input.gamepad){
+                this.input.gamepad.once('connected', (pad) => {
+                    this.gamepads.push(pad);
+                });
+                this.input.gamepad.on('disconnected', (pad) => {
+                    this.gamepads = this.gamepads.filter(p => p !== pad);
+                });
+            }
+
+            // Spawn obstacles periodically
+            this.spawnTimer = this.time.addEvent({ delay: 1000, loop: true, callback: () => this.spawnObstacle() });
+        }
+
+        createPlayer(x, lane, label, headColor, bodyColor){
+            // Simple pixel-art avatar: body rectangle + head rectangle using graphics texture
+            const width = 28, height = 36;
+            const rt = this.add.renderTexture(0,0,width,height).setVisible(false);
+            rt.draw(this.add.rectangle(0,0, width, height, 0x000000, 0).setOrigin(0));
+            // body
+            rt.fill(bodyColor, 1, 4, 16, 20, 20);
+            // head (fallback color block)
+            rt.fill(headColor, 1, 6, 2, 16, 12);
+            const key = `player_${label}_${Phaser.Math.RND.uuid().slice(0,6)}`;
+            rt.saveTexture(key);
+
+            const startY = lane === 0 ? GROUND_Y : (GROUND_Y - 100);
+            const sprite = this.physics.add.sprite(x, startY, key);
+            sprite.setOrigin(0.5, 1);
+            sprite.setCollideWorldBounds(true);
+            sprite.body.setSize(16, 32).setOffset(6, 4);
+            sprite.body.setMaxVelocity(300, 800);
+
+            const nameText = this.add.text(sprite.x, sprite.y - 40, label, { fontFamily: 'monospace', fontSize: '12px', color: '#ffffff' });
+            nameText.setOrigin(0.5, 1);
+
+            // Optional custom head image on top of body
+            let headImage = null;
+            const headKey = label === 'Ћоко' ? 'head_coko' : 'head_vlajko';
+            if(this.textures.exists(headKey)){
+                headImage = this.add.image(sprite.x, sprite.y - 32, headKey).setOrigin(0.5, 1);
+                const desiredW = 16; const scale = desiredW / headImage.width; headImage.setScale(scale);
+            }
+
+            return { sprite, nameText, headImage, label, lane, onGround: false, isAlive: true };
+        }
+
+        spawnObstacle(){
+            if(this.gameOver) return;
+            // Random lane: 0 for lower (p1), 1 for upper (p2)
+            const lane = Math.random() < 0.5 ? 0 : 1;
+            const y = lane === 0 ? GROUND_Y : GROUND_Y - 100;
+            const size = Phaser.Math.Between(18, 34);
+            const color = lane === 0 ? 0xff004d : 0x00e436;
+            const g = this.add.rectangle(GAME_WIDTH + size, y, size, size, color).setOrigin(0.5, 1);
+            const box = this.physics.add.existing(g);
+            g.body.setVelocityX(-240 - Phaser.Math.Between(0, 80));
+            g.body.setAllowGravity(false);
+            g.body.setImmovable(true);
+            this.obstacles.add(g);
+
+            // Cleanup off-screen
+            g.update = () => {
+                if(g.x < -50){ g.destroy(); }
+            };
+        }
+
+        handleHit(loser, winner){
+            if(this.gameOver) return;
+            this.gameOver = true;
+            this.spawnTimer.remove(false);
+            this.obstacles.setVelocityX(0);
+
+            // Update match score
+            const p1IsWinner = winner.label === 'Ћоко';
+            if(p1IsWinner){ this.registry.set('winsP1', (this.registry.get('winsP1')||0) + 1); }
+            else { this.registry.set('winsP2', (this.registry.get('winsP2')||0) + 1); }
+
+            const winsP1 = this.registry.get('winsP1')||0;
+            const winsP2 = this.registry.get('winsP2')||0;
+
+            // Match complete?
+            if(winsP1 >= MATCH_TARGET_WINS || winsP2 >= MATCH_TARGET_WINS){
+                this.time.delayedCall(800, () => {
+                    this.scene.start('Result', { winner: winsP1 > winsP2 ? 'Ћоко' : 'Влајко', winsP1, winsP2 });
+                });
+                return;
+            }
+
+            // Next round intermission
+            const nextRound = (this.registry.get('round')||1) + 1;
+            this.registry.set('round', nextRound);
+            this.winText.setText(`Рунду добија: ${winner.label}. Следећа рунда за 1s...`);
+            this.time.delayedCall(1000, () => {
+                this.scene.restart();
+            });
+        }
+
+        restart(){
+            this.scene.restart();
+        }
+
+        update(time, delta){
+            // Restart key
+            if(this.keys.R.isDown && this.gameOver){ this.restart(); return; }
+
+            const [p1, p2] = this.players;
+            // Auto-run forward effect: world scroll via moving obstacles left; players can strafe slightly
+            const left1 = this.keys.A.isDown;
+            const right1 = this.keys.D.isDown;
+            const jump1 = Phaser.Input.Keyboard.JustDown(this.keys.W) || Phaser.Input.Keyboard.JustDown(this.keys.SPACE);
+
+            const left2 = this.cursors.left.isDown;
+            const right2 = this.cursors.right.isDown;
+            const jump2 = Phaser.Input.Keyboard.JustDown(this.cursors.up) || Phaser.Input.Keyboard.JustDown(this.keys.ENTER);
+
+            this.applyControls(p1, left1, right1, jump1);
+            this.applyControls(p2, left2, right2, jump2);
+
+            // Gamepads
+            if(this.input.gamepad){
+            for(const pad of this.input.gamepad.gamepads){
+                if(!pad) continue;
+                // Map first pad to p1, second to p2
+                const idx = pad.index;
+                const player = idx === 0 ? p1 : p2;
+                const l = pad.axes.length > 0 ? pad.axes[0].getValue() < -0.3 : false;
+                const r = pad.axes.length > 0 ? pad.axes[0].getValue() > 0.3 : false;
+                const jump = pad.buttons.some(b => b.pressed);
+                this.applyControls(player, l, r, jump);
+            }
+            }
+
+            // Update obstacles cleanup
+            this.obstacles.children.iterate(o => { if(o && o.update) o.update(); });
+
+            // Update name labels and head images to follow sprites
+            for(const p of this.players){
+                p.nameText.x = p.sprite.x;
+                p.nameText.y = p.sprite.y - 40;
+                if(p.headImage){
+                    p.headImage.x = p.sprite.x;
+                    p.headImage.y = p.sprite.y - 32;
+                }
+            }
+        }
+
+        applyControls(player, left, right, jump){
+            if(!player.isAlive || this.gameOver) return;
+            const body = player.sprite.body;
+            // Horizontal nudge within lane window
+            const speed = 180;
+            if(left && !right) body.setVelocityX(-speed);
+            else if(right && !left) body.setVelocityX(speed);
+            else body.setVelocityX(0);
+
+            // Grounded check
+            const onGround = body.blocked.down;
+            if(jump && onGround){
+                body.setVelocityY(-420);
+            }
+        }
+    }
+
+    class ResultScene extends Phaser.Scene {
+        constructor(){ super('Result'); }
+        init(data){ this.finalWinner = data?.winner || 'Победник'; this.winsP1 = data?.winsP1||0; this.winsP2 = data?.winsP2||0; }
+        create(){
+            this.add.rectangle(GAME_WIDTH/2, GAME_HEIGHT/2, GAME_WIDTH, GAME_HEIGHT, 0x0b0e22);
+            this.add.text(GAME_WIDTH/2, 200, `Победник меча: ${this.finalWinner}`, { fontFamily:'monospace', fontSize:'28px', color:'#ffffff' }).setOrigin(0.5);
+            this.add.text(GAME_WIDTH/2, 250, `Коначан резултат — P1 ${this.winsP1} : ${this.winsP2} P2`, { fontFamily:'monospace', fontSize:'18px', color:'#cccccc' }).setOrigin(0.5);
+            this.add.text(GAME_WIDTH/2, 340, 'Притисни било шта за насловну', { fontFamily:'monospace', fontSize:'16px', color:'#ffffff' }).setOrigin(0.5).setAlpha(0.9);
+            const back = () => this.scene.start('Title');
+            this.input.keyboard.once('keydown', back);
+            this.input.once('pointerdown', back);
+            if(this.input.gamepad){ this.input.gamepad.once('down', back); }
+        }
+    }
+
+    const config = {
+        type: Phaser.AUTO,
+        parent: 'game',
+        width: GAME_WIDTH,
+        height: GAME_HEIGHT,
+        backgroundColor: '#0b0e22',
+        physics: { default: 'arcade', arcade: { gravity: { y: 900 }, debug: false } },
+        input: { gamepad: true },
+        scene: [TitleScene, TwinRunnerScene, ResultScene]
+    };
+
+    const game = new Phaser.Game(config);
+    
+    // Drag-and-drop / picker to load custom heads without CORS (works from file://)
+    (function enableHeadImport(){
+        const dropZone = document.body;
+        const stop = (e) => { e.preventDefault(); e.stopPropagation(); };
+        ['dragenter','dragover','dragleave','drop'].forEach(ev => dropZone.addEventListener(ev, stop));
+        dropZone.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            handleFiles(files);
+        });
+
+        // Keyboard shortcut: press H to open file picker
+        window.addEventListener('keydown', (e) => {
+            if(e.key.toLowerCase() === 'h'){
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.multiple = true;
+                input.onchange = () => handleFiles(input.files);
+                input.click();
+            }
+        });
+
+        function handleFiles(fileList){
+            if(!fileList || fileList.length === 0) return;
+            for(const f of fileList){
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const dataUrl = reader.result;
+                    // Decide which head to map by filename contains coko or vlajko
+                    let key = null;
+                    const lower = (f.name||'').toLowerCase();
+                    if(lower.includes('coko') || lower.includes('ćoko') || lower.includes('coko')) key = 'head_coko';
+                    else if(lower.includes('vlajko')) key = 'head_vlajko';
+                    // If unknown, assign to first empty slot
+                    if(!key){
+                        if(!game.textures.exists('head_coko')) key = 'head_coko';
+                        else key = 'head_vlajko';
+                    }
+                    // Add/replace texture
+                    const img = new Image();
+                    img.onload = () => {
+                        const keyToUse = key;
+                        if(game.textures.exists(keyToUse)) game.textures.remove(keyToUse);
+                        game.textures.addImage(keyToUse, img);
+                        // If scene running, attach to players
+                        const scene = game.scene.keys['TwinRunner'];
+                        if(scene && scene.players){
+                            for(const p of scene.players){
+                                const expected = p.label === 'Ћоко' ? 'head_coko' : 'head_vlajko';
+                                if(expected === keyToUse){
+                                    if(p.headImage){ p.headImage.setTexture(keyToUse); }
+                                    else {
+                                        p.headImage = scene.add.image(p.sprite.x, p.sprite.y - 32, keyToUse).setOrigin(0.5, 1);
+                                    }
+                                    const desiredW = 16; const scale = desiredW / img.width; p.headImage.setScale(scale);
+                                }
+                            }
+                        }
+                    };
+                    img.src = dataUrl;
+                };
+                reader.readAsDataURL(f);
+            }
+        }
+    })();
+    </script>
+</body>
+</html>
+
+
