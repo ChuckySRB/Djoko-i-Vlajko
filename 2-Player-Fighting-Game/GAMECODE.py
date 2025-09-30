@@ -85,110 +85,36 @@ def drawbg():
 
 #----------------player 1 selection------------------------------------------------------
 
-Mcharacter=[1,3,4,2,5]
-m=random.choice(Mcharacter)
+# Pick Djoko
+SIZE=180
+SCALE=3
+OFSET=[220,150]
+PROP1=[SIZE,SCALE,OFSET]
+Player1=pygame.image.load("Good Fighter/djoko_moves.png").convert_alpha()
+p1_anm_steps=[4,8,2,4,4,3,7,2]
 
-if(m==1):
-    SIZE=180
-    SCALE=3
-    OFSET=[220,150]
-    PROP1=[SIZE,SCALE,OFSET]
-    Player1=pygame.image.load("Good Fighter/knight moves.png").convert_alpha()
-    p1_anm_steps=[11,8,3,7,7,4,11,3]
 
-elif(m==2):
-    SIZE=180
-    SCALE=3
-    OFSET=[232,150]
-    PROP1=[SIZE,SCALE,OFSET]
-    Player1=pygame.image.load("Good Fighter/martial 1 moves.png").convert_alpha()
-    p1_anm_steps=[8,8,2,6,6,4,6,2]
-
-elif(m==3):
-    SIZE=180
-    SCALE=3
-    OFSET=[220,150]
-    PROP1=[SIZE,SCALE,OFSET]
-    Player1=pygame.image.load("Good Fighter/martial 2 moves.png").convert_alpha()
-    p1_anm_steps=[4,8,2,4,4,3,7,2]
-
-elif(m==4):
-    SIZE=180
-    SCALE=3
-    OFSET=[220,150]
-    PROP1=[SIZE,SCALE,OFSET]
-    Player1=pygame.image.load("Good Fighter/martial 3 moves.png").convert_alpha()
-    p1_anm_steps=[10,8,3,7,9,3,11,3]
-
-elif(m==5):
-    SIZE=180
-    SCALE=2
-    OFSET=[120,129]
-    PROP1=[SIZE,SCALE,OFSET,]
-    Player1=pygame.image.load("Good Fighter/wiz 2 moves.png").convert_alpha()
-    p1_anm_steps=[6,8,2,8,8,5,7,2]
 
 #----------------player 2 selection------------------------------------------------------
 
-Ncharacter=[5,2,4,1,3]
-Ncharacter.remove(m) #makes sure both player don't get the same character
-n=random.choice(Ncharacter)
-
-if(n==1):
-    SIZE=180
-    SCALE=3
-    OFSET=[220,150]
-    PROP2=[SIZE,SCALE,OFSET]
-    Player2=pygame.image.load("Good Fighter/knight moves.png").convert_alpha()
-    p2_anm_steps=[11,8,3,7,7,4,11,3]
-
-elif(n==2):
-    SIZE=180
-    SCALE=3
-    OFSET=[220,150]
-    PROP2=[SIZE,SCALE,OFSET]
-    Player2=pygame.image.load("Good Fighter/martial 1 moves.png").convert_alpha()
-    p2_anm_steps=[8,8,2,6,6,4,6,2]
-
-elif(n==3):
-    SIZE=180
-    SCALE=3
-    OFSET=[220,150]
-    PROP2=[SIZE,SCALE,OFSET]
-    Player2=pygame.image.load("Good Fighter/martial 2 moves.png").convert_alpha()
-    p2_anm_steps=[4,8,2,4,4,3,7,2]
-
-elif(n==4):
-    SIZE=180
-    SCALE=3
-    OFSET=[220,150]
-    PROP2=[SIZE,SCALE,OFSET]
-    Player2=pygame.image.load("Good Fighter/martial 3 moves.png").convert_alpha()
-    p2_anm_steps=[10,8,3,7,9,3,11,3]
-
-elif(n==5):
-    SIZE=180
-    SCALE=2
-    OFSET=[120,129]
-    PROP2=[SIZE,SCALE,OFSET]
-    Player2=pygame.image.load("Good Fighter/wiz 2 moves.png").convert_alpha()
-    p2_anm_steps=[6,8,2,8,8,5,7,2]
+# Pick Vlajko 
+SIZE=180
+SCALE=3
+OFSET=[220,150]
+PROP2=[SIZE,SCALE,OFSET]
+Player2=pygame.image.load("Good Fighter/vlajko_moves.png").convert_alpha()
+p2_anm_steps=[10,8,3,7,9,3,11,3]
 
 #----------------attack sounds------------------------------------------------------
 
-if(m==1 or m==2 or m==3 or m==4):
-    p1sound=pygame.mixer.Sound("music/swordattack.wav")
-    p1soundmiss=pygame.mixer.Sound("music/swordmissattack.flac")    
-else:
-    p1sound=pygame.mixer.Sound("music/fireattack.wav")
-    p1soundmiss=pygame.mixer.Sound("music/firemissattack.wav")
 
-if(n==1 or n==2 or n==3 or n==4):
-    p2sound=pygame.mixer.Sound("music/swordattack.wav")
-    p2soundmiss=pygame.mixer.Sound("music/swordmissattack.flac")
-else:
-    p2sound=pygame.mixer.Sound("music/fireattack.wav")
-    p2soundmiss=pygame.mixer.Sound("music/firemissattack.wav")
+p1sound=pygame.mixer.Sound("music/swordattack.wav")
+p1soundmiss=pygame.mixer.Sound("music/swordmissattack.flac")    
+
+
+p2sound=pygame.mixer.Sound("music/swordattack.wav")
+p2soundmiss=pygame.mixer.Sound("music/swordmissattack.flac")
+
 
 
 #----------------health bar------------------------------------------------------
