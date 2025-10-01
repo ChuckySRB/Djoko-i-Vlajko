@@ -21,7 +21,7 @@ sc_width= 1000
 sc_height= 540
 
 screen=pygame.display.set_mode((sc_width, sc_height))
-pygame.display.set_caption("Pixel Warrior")
+pygame.display.set_caption("Ђоко и Влајко")
 
 #frames
 clock=pygame.time.Clock()
