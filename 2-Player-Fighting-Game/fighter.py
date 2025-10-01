@@ -1,5 +1,35 @@
 import pygame
 from pygame import mixer
+
+# Controller button mappings for PlayStation controllers
+# These are standard mappings that work with most PlayStation controllers
+CONTROLLER_BUTTONS = {
+    'CROSS': 0,      # X button (jump)
+    'CIRCLE': 1,     # O button (attack 2)
+    'SQUARE': 2,     # Square button (attack 1)
+    'TRIANGLE': 3,   # Triangle button (special)
+    'L1': 4,         # L1 button
+    'R1': 5,         # R1 button
+    'L2': 6,         # L2 button
+    'R2': 7,         # R2 button
+    'SHARE': 8,      # Share button
+    'OPTIONS': 9,    # Options button
+    'L3': 10,        # Left stick press
+    'R3': 11,        # Right stick press
+    'PS': 12,        # PS button
+    'TOUCHPAD': 13   # Touchpad button
+}
+
+# Controller axis mappings
+CONTROLLER_AXES = {
+    'LEFT_X': 0,     # Left stick X axis
+    'LEFT_Y': 1,     # Left stick Y axis
+    'RIGHT_X': 2,    # Right stick X axis
+    'RIGHT_Y': 3,    # Right stick Y axis
+    'L2_TRIGGER': 4, # L2 trigger
+    'R2_TRIGGER': 5  # R2 trigger
+}
+
 class Fighter():
     def __init__(self,player,x,y,Flip,data,spritesheet,animationstep,sound,misssound):
         self.player=player
@@ -26,6 +56,58 @@ class Fighter():
         self.health=100
         self.alive=True
         self.attack_hit_this_attack=False  # Track if this attack already hit
+        
+        # Controller support
+        self.controller_id = player - 1  # Player 1 uses controller 0, Player 2 uses controller 1
+        self.controller = None
+        if self.controller_id < pygame.joystick.get_count():
+            self.controller = pygame.joystick.Joystick(self.controller_id)
+            self.controller.init()
+
+    def get_controller_input(self):
+        """Get controller input for the fighter"""
+        input_data = {
+            'left': False,
+            'right': False,
+            'jump': False,
+            'attack1': False,
+            'attack2': False
+        }
+        
+        if self.controller is None:
+            return input_data
+            
+        try:
+            # Get button states
+            buttons = [self.controller.get_button(i) for i in range(self.controller.get_numbuttons())]
+            
+            # Get axis states
+            axes = [self.controller.get_axis(i) for i in range(self.controller.get_numaxes())]
+            
+            # Left stick movement (with deadzone)
+            deadzone = 0.3
+            if len(axes) > CONTROLLER_AXES['LEFT_X']:
+                left_x = axes[CONTROLLER_AXES['LEFT_X']]
+                if left_x > deadzone:
+                    input_data['right'] = True
+                elif left_x < -deadzone:
+                    input_data['left'] = True
+            
+            # Jump button (Cross/X button)
+            if len(buttons) > CONTROLLER_BUTTONS['CROSS']:
+                input_data['jump'] = buttons[CONTROLLER_BUTTONS['CROSS']]
+            
+            # Attack buttons
+            if len(buttons) > CONTROLLER_BUTTONS['SQUARE']:
+                input_data['attack1'] = buttons[CONTROLLER_BUTTONS['SQUARE']]
+            if len(buttons) > CONTROLLER_BUTTONS['CIRCLE']:
+                input_data['attack2'] = buttons[CONTROLLER_BUTTONS['CIRCLE']]
+                
+        except pygame.error:
+            # Controller disconnected
+            self.controller = None
+            
+        return input_data
 
     def loadimage(self,spritesheet,animationstep):
         anm_list=[]
@@ -48,21 +130,38 @@ class Fighter():
 
         key=pygame.key.get_pressed()
         if self.attacking==False and self.alive==True and round_over==False:
+            # Check for controller input first, then keyboard
+            controller_input = self.get_controller_input()
+            
             # movement for p1
             if self.player==1:
+                # Controller input
+                if controller_input['right']:
+                    dx=SPEED
+                    self.running=True
+                if controller_input['left'] and dx<360:
+                    dx=-SPEED
+                    self.running=True
+                if controller_input['jump'] and self.jump==False:
+                    self.vely=-30
+                    self.jump=True
+                if controller_input['attack1']:
+                    self.attack(target)
+                    self.attack_type=1
+                if controller_input['attack2']:
+                    self.attack(target)
+                    self.attack_type=2
+                
+                # Keyboard input (fallback)
                 if key[pygame.K_d]:
                     dx=SPEED
                     self.running=True
-                    
                 if key[pygame.K_a] and dx<360:
                     dx=-SPEED
                     self.running=True
-                # jump
                 if key[pygame.K_w] and self.jump==False:
                     self.vely=-30
                     self.jump=True
-
-                # attack
                 if key[pygame.K_q] or key[pygame.K_e]:
                     self.attack(target)
                     if key[pygame.K_q]:
@@ -70,20 +169,34 @@ class Fighter():
                     if key[pygame.K_e]:
                         self.attack_type=2
 
-
             if self.player==2:
+                # Controller input
+                if controller_input['right']:
+                    dx=SPEED
+                    self.running=True
+                if controller_input['left'] and dx<360:
+                    dx=-SPEED
+                    self.running=True
+                if controller_input['jump'] and self.jump==False:
+                    self.vely=-30
+                    self.jump=True
+                if controller_input['attack1']:
+                    self.attack(target)
+                    self.attack_type=1
+                if controller_input['attack2']:
+                    self.attack(target)
+                    self.attack_type=2
+                
+                # Keyboard input (fallback)
                 if key[pygame.K_RIGHT]:
                     dx=SPEED
                     self.running=True
                 if key[pygame.K_LEFT] and dx<360:
                     dx=-SPEED
                     self.running=True
-                # jump
                 if key[pygame.K_UP] and self.jump==False:
                     self.vely=-30
                     self.jump=True
-
-                # attack
                 if key[pygame.K_KP1] or key[pygame.K_KP2]:
                     self.attack(target)
                     if key[pygame.K_KP1]:

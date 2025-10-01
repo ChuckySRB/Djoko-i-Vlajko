@@ -1,6 +1,34 @@
 import pygame
 from pygame import mixer
 
+# Controller button mappings for PlayStation controllers
+CONTROLLER_BUTTONS = {
+    'CROSS': 0,      # X button
+    'CIRCLE': 1,     # O button
+    'SQUARE': 2,     # Square button
+    'TRIANGLE': 3,   # Triangle button
+    'L1': 4,         # L1 button
+    'R1': 5,         # R1 button
+    'L2': 6,         # L2 button
+    'R2': 7,         # R2 button
+    'SHARE': 8,      # Share button
+    'OPTIONS': 9,    # Options button
+    'L3': 10,        # Left stick press
+    'R3': 11,        # Right stick press
+    'PS': 12,        # PS button
+    'TOUCHPAD': 13   # Touchpad button
+}
+
+# Controller axis mappings
+CONTROLLER_AXES = {
+    'LEFT_X': 0,     # Left stick X axis
+    'LEFT_Y': 1,     # Left stick Y axis
+    'RIGHT_X': 2,    # Right stick X axis
+    'RIGHT_Y': 3,    # Right stick Y axis
+    'L2_TRIGGER': 4, # L2 trigger
+    'R2_TRIGGER': 5  # R2 trigger
+}
+
 class MainMenu:
     def __init__(self, screen_width, screen_height):
         self.screen_width = screen_width
@@ -20,6 +48,7 @@ class MainMenu:
         self.YELLOW = (255, 255, 0)
         self.RED = (240, 2, 5)
         self.BLACK = (50, 15, 12)
+        self.GREEN = (0, 255, 0)
         
         # Menu options
         self.menu_options = ["ПОЧНИ ИГРУ", "ИЗАЂИ"]
@@ -27,6 +56,12 @@ class MainMenu:
         
         # Menu state
         self.menu_active = True
+        
+        # Controller support
+        self.controller = None
+        if pygame.joystick.get_count() > 0:
+            self.controller = pygame.joystick.Joystick(0)
+            self.controller.init()
         
         # Load menu music (optional)
         try:
@@ -37,7 +72,7 @@ class MainMenu:
             pass  # Continue without music if file not found
     
     def handle_input(self, event):
-        """Handle keyboard input for menu navigation"""
+        """Handle keyboard and controller input for menu navigation"""
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_UP or event.key == pygame.K_w:
                 self.selected_option = (self.selected_option - 1) % len(self.menu_options)
@@ -45,6 +80,20 @@ class MainMenu:
                 self.selected_option = (self.selected_option + 1) % len(self.menu_options)
             elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
                 return self.select_option()
+        elif event.type == pygame.JOYBUTTONDOWN and self.controller:
+            # Controller button input
+            if event.button == CONTROLLER_BUTTONS['CROSS']:  # X button to select
+                return self.select_option()
+            elif event.button == CONTROLLER_BUTTONS['CIRCLE']:  # O button to go back (if needed)
+                pass  # Could add back functionality here
+        elif event.type == pygame.JOYAXISMOTION and self.controller:
+            # Controller stick input for navigation
+            if event.axis == CONTROLLER_AXES['LEFT_Y']:
+                deadzone = 0.5
+                if event.value < -deadzone:  # Up
+                    self.selected_option = (self.selected_option - 1) % len(self.menu_options)
+                elif event.value > deadzone:  # Down
+                    self.selected_option = (self.selected_option + 1) % len(self.menu_options)
         return None
     
     def select_option(self):
@@ -83,20 +132,19 @@ class MainMenu:
                 text_rect = text.get_rect(center=(self.screen_width // 2, y_pos))
             
             screen.blit(text, text_rect)
-        # # Draw instructions
-        # instruction_text = self.small_font.render("Use UP/DOWN or W/S to navigate, ENTER/SPACE to select", True, self.WHITE)
-        # instruction_rect = instruction_text.get_rect(center=(self.screen_width // 2, self.screen_height - 50))
-        # screen.blit(instruction_text, instruction_rect)
         
-        # # Draw player controls info
-        # controls_text1 = self.small_font.render("Player 1: WASD + Q/E to attack", True, self.WHITE)
-        # controls_text2 = self.small_font.render("Player 2: Arrow Keys + Numpad 1/2 to attack", True, self.WHITE)
-        
-        # controls_rect1 = controls_text1.get_rect(center=(self.screen_width // 2, self.screen_height - 100))
-        # controls_rect2 = controls_text2.get_rect(center=(self.screen_width // 2, self.screen_height - 70))
-        
-        # screen.blit(controls_text1, controls_rect1)
-        # screen.blit(controls_text2, controls_rect2)
+        # Draw controller connection status in the top right corner
+        controller_count = pygame.joystick.get_count()
+        padding = 20
+        if controller_count > 0:
+            controller_text = self.small_font.render(f"Број џојстика: {controller_count}", True, self.GREEN)
+            controller_rect = controller_text.get_rect(topright=(self.screen_width - padding, padding))
+            screen.blit(controller_text, controller_rect)
+        else:
+            no_controller_text = self.small_font.render("Нема џојстика - удара се по тастатури", True, self.YELLOW)
+            no_controller_rect = no_controller_text.get_rect(topright=(self.screen_width - padding, padding))
+            screen.blit(no_controller_text, no_controller_rect)
+
     
     def is_active(self):
         """Check if menu is still active"""

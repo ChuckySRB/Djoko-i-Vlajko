@@ -6,6 +6,15 @@ from main_menu import MainMenu
 
 mixer.init()
 pygame.init()
+pygame.joystick.init()
+
+# Initialize joysticks
+joysticks = []
+for i in range(pygame.joystick.get_count()):
+    joystick = pygame.joystick.Joystick(i)
+    joystick.init()
+    joysticks.append(joystick)
+    print(f"Controller {i}: {joystick.get_name()}")
 
 #window
 sc_width= 1000
@@ -172,13 +181,31 @@ while run:
 
 
     key=pygame.key.get_pressed()
-    if key[pygame.K_a] and scroll>0:
+    
+    # Check for controller input for background scrolling
+    controller_scroll_left = False
+    controller_scroll_right = False
+    
+    if joysticks:
+        for joystick in joysticks:
+            try:
+                # Check left stick for scrolling
+                left_x = joystick.get_axis(0)  # Left stick X axis
+                if left_x < -0.3:  # Left
+                    controller_scroll_left = True
+                elif left_x > 0.3:  # Right
+                    controller_scroll_right = True
+            except pygame.error:
+                pass  # Controller disconnected
+    
+    # Background scrolling with keyboard and controller
+    if (key[pygame.K_a] or controller_scroll_left) and scroll>0:
         scroll -=5
-    elif key[pygame.K_LEFT] and scroll>0:
+    elif (key[pygame.K_LEFT] or controller_scroll_left) and scroll>0:
         scroll -=5
-    if key[pygame.K_d] and scroll<300:
+    if (key[pygame.K_d] or controller_scroll_right) and scroll<300:
         scroll +=5
-    elif key[pygame.K_RIGHT] and scroll<300:
+    elif (key[pygame.K_RIGHT] or controller_scroll_right) and scroll<300:
         scroll +=5
 
     
