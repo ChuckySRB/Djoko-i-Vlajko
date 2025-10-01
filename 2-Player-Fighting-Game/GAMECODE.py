@@ -35,8 +35,9 @@ intro_count=4
 last_count=pygame.time.get_ticks()    
 score=[0,0]
 round_over=False
-Round_Over_CoolDown=2000
-introsound=pygame.mixer.Sound("music/321fight.mp3")
+Round_Over_CoolDown=4000
+
+introsound=pygame.mixer.Sound("music/tridvajedan.mp3")
 
 
 victory1=pygame.image.load("P1.png").convert_alpha()
@@ -154,11 +155,13 @@ while run:
         F2.move(sc_width,sc_height,screen,F1,round_over)
     else:
         drawtimer(intro_count)       
-        if(pygame.time.get_ticks()-last_count)>=1000:
+        if(pygame.time.get_ticks()-last_count)>=1500:
             if(intro_count==4):
                 introsound.play()
             intro_count-=1
+
             last_count=pygame.time.get_ticks()
+            
             print(intro_count)
     
     healthbar(F1.health,70,25)
@@ -183,6 +186,11 @@ while run:
     F1.update()
     F2.update()
 
+    # Check attack collisions during attack animations
+    if intro_count <= 0:  # Only check during gameplay, not countdown
+        F1.check_attack_hit(F2)
+        F2.check_attack_hit(F1)
+
     #draw fighters
     F1.draw(screen)
     F2.draw(screen)
@@ -205,7 +213,7 @@ while run:
         elif F2.alive==True and F1.alive==False:
             screen.blit(victory2,(0,0))
 
-        if pygame.time.get_ticks() - roundovertime> Round_Over_CoolDown:
+        if pygame.time.get_ticks() - roundovertime > Round_Over_CoolDown:
             round_over=False
             intro_count=4
             F1=Fighter(1,100,290,False,PROP1,Player1,p1_anm_steps,p1sound,p1soundmiss)

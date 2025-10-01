@@ -25,6 +25,7 @@ class Fighter():
         self.hit=False
         self.health=100
         self.alive=True
+        self.attack_hit_this_attack=False  # Track if this attack already hit
 
     def loadimage(self,spritesheet,animationstep):
         anm_list=[]
@@ -149,6 +150,7 @@ class Fighter():
                 self.frame=0
                 if self.action==3 or self.action==4:
                     self.attacking=False
+                    self.attack_hit_this_attack=False  # Reset hit flag when attack ends
                     self.attack_cooldown=25
                 if self.action==5:
                     self.hit=False
@@ -158,14 +160,46 @@ class Fighter():
     def attack(self,target):
         if self.attack_cooldown==0:
             self.attacking=True
+            self.attack_hit_this_attack=False  # Reset hit flag for new attack
             self.attack_misssound.play()
-            attack_rect=pygame.Rect(self.rect.centerx - (self.rect.width*self.flip), self.rect.y,self.rect.width,self.rect.height)
-            if attack_rect.colliderect(target.rect):
-                self.attack_sound.play()
-                target.health-=10
-                target.hit=True
-
-            # pygame.draw.rect(surface,(0,255,0),attack_rect)
+            # Attack rectangle will be created and checked in update() method
+            # so it follows the player during the entire attack animation
+    
+    def get_attack_rect(self):
+        """Create attack rectangle that follows the player's current position"""
+        if not self.attacking:
+            return None
+            
+        # Create larger attack rectangle
+        attack_width = self.rect.width * 1.5  # 50% larger width
+        attack_height = self.rect.height * 1.2  # 20% larger height
+        
+        # Position the attack rectangle based on player's facing direction
+        if self.flip:
+            attack_x = self.rect.centerx - attack_width
+        else:
+            attack_x = self.rect.centerx
+            
+        return pygame.Rect(attack_x, self.rect.y, attack_width, attack_height)
+    
+    def check_attack_hit(self, target):
+        """Check if attack hits target during attack animation"""
+        if not self.attacking or self.attack_hit_this_attack:
+            return False
+        
+        # Only allow damage during first 2 frames of attack animation
+        if self.action == 3 or self.action == 4:  # Attack actions
+            if self.frame > 1:  # Only first 2 frames (0 and 1) can deal damage
+                return False
+            
+        attack_rect = self.get_attack_rect()
+        if attack_rect and attack_rect.colliderect(target.rect):
+            self.attack_sound.play()
+            target.health -= 10
+            target.hit = True
+            self.attack_hit_this_attack = True  # Mark that this attack already hit
+            return True
+        return False
     
     def update_action(self,new_action):
         #if new action if sifferent to previous one
@@ -179,3 +213,9 @@ class Fighter():
         img=pygame.transform.flip(self.image,self.flip,False)
         # pygame.draw.rect(surface,(255,0,0),self.rect )
         surface.blit(img, (self.rect.x - (self.ofset[0]-self.img_scale),self.rect.y - (self.ofset[1]-self.img_scale)))
+        
+        # Draw attack rectangle for debugging (uncomment to see attack hitbox)
+        # if self.attacking:
+        #     attack_rect = self.get_attack_rect()
+        #     if attack_rect:
+        #         pygame.draw.rect(surface, (0, 255, 0), attack_rect, 2)
